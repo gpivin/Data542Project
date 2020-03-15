@@ -1,0 +1,351 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+
+```{r}
+link='https://github.com/shaybauman/542Data/raw/master/TEAMData.RDS'
+myfile=url(link)
+
+teamdata=readRDS(file=myfile)
+row.names(teamdata)=NULL
+```
+```{r}
+teamdata=na.omit(teamdata)
+```
+```{r}
+str(teamdata[,c(2,3)])
+```
+```{r}
+dfClus=teamdata[,c(2,3)]
+```
+```{r}
+row.names(dfClus)=teamdata$Country
+head(dfClus)
+```
+```{r}
+set.seed(999)
+```
+```{r}
+library(cluster)
+dfClus_D=cluster::daisy(x=dfClus,metric="gower")
+```
+```{r}
+NumCluster=4
+res.pam = pam(x=dfClus_D,k = NumCluster,cluster.only = F)
+```
+```{r}
+teamdata$pam=as.factor(res.pam$clustering)
+```
+```{r}
+table(teamdata$pam)
+```
+```{r}
+library(factoextra)
+fviz_silhouette(res.pam)
+```
+```{r}
+install.packages("FactoMineR")
+library("FactoMineR")
+```
+```{r}
+install.packages("factoextra")
+library("factoextra")
+```
+```{r}
+fviz_silhouette(res.pam)
+```
+```{r}
+pamEval=data.frame(res.pam$silinfo$widths)
+head(pamEval)
+```
+```{r}
+pamEval[pamEval$sil_width<0,]
+```
+```{r}
+library(factoextra)
+```
+```{r}
+res.agnes = hcut(dfClus_D, 4,isdiss=T,
+                 hc_func='agnes',
+                 hc_method = "ward.D2")
+```
+```{r}
+teamdata$agn=as.factor(res.agnes$cluster)
+```
+```{r}
+table(teamdata$agn)
+```
+```{r}
+fviz_dend(res.agnes,k=NumCluster, cex = 0.7, horiz = T)
+```
+```{r}
+fviz_silhouette(res.agnes)
+```
+```{r}
+agnEval=data.frame(res.agnes$silinfo$widths)
+head(agnEval)
+```
+```{r}
+agnEval[agnEval$sil_width<0,]
+```
+
+```{r}
+res.diana= hcut(dfClus_D, k = NumCluster,
+                 hc_func='diana',
+                 hc_method = "ward.D")
+```
+```{r}
+teamdata$dia=as.factor(res.diana$cluster)
+```
+```{r}
+table(teamdata$dia)
+```
+```{r}
+fviz_dend(res.diana,k=NumCluster, cex = 0.7, horiz = T)
+```
+```{r}
+fviz_silhouette(res.diana)
+```
+
+```{r}
+diaEval=data.frame(res.diana$silinfo$widths)
+head(diaEval)
+
+```
+```{r}
+diaEval[diaEval$sil_width<0,]
+```
+```{r}
+library(dbscan)
+```
+```{r}
+minNeighs=3
+kNNdistplot(dfClus_D, k = minNeighs)
+abline(h=.03, col = "red", lty=2)
+```
+```{r}
+distance=0.03
+res.db = dbscan::dbscan(dfClus_D, eps=distance, 
+                     minPts=minNeighs)
+```
+```{r}
+res.db
+teamdata$db=as.factor(res.db$cluster)
+```
+```{r}
+projectedData = cmdscale(dfClus_D, k=2)
+```
+```{r}
+teamdata$dim1 = projectedData[,1]
+teamdata$dim2 = projectedData[,2]
+```
+```{r}
+base= ggplot(data=teamdata,
+             aes(x=dim1, y=dim2,
+                 label=Country)) 
+base + geom_text(size=2)
+```
+```{r}
+
+```
+
+```{r}
+pamPlot=base + labs(title = "PAM") + geom_point(size=2,
+                                              aes(color=pam),
+                                              show.legend = F) 
+```
+```{r}
+agnPlot=base + labs(title = "AGNES") + geom_point(size=2,
+                                              aes(color=agn),
+                                              show.legend = F) 
+```
+```{r}
+diaPlot=base + labs(title = "DIANA") + geom_point(size=2,
+                                              aes(color=dia),
+                                              show.legend = F)
+```
+```{r}
+library(magrittr)
+```
+```{r}
+library(ggpubr)
+```
+```{r}
+ggarrange(pamPlot, agnPlot, diaPlot,ncol = 3)
+```
+```{r}
+library(ggrepel)
+
+dbPlot= base + labs(title = "DBSCAN") + geom_point(aes(color=teamdata$db),
+                                         
+                                               show.legend = T) 
+dbPlot
+```
+```{r}
+library(ggrepel)
+dbPlot + geom_text_repel(size=3,aes(label=Country))
+```
+
+```{r}
+LABEL=ifelse(teamdata$db==0,teamdata$Country,"")
+
+dbPlot + geom_text_repel(aes(label= LABEL))
+```
+```{r}
+library(ggplot2)
+ggplot(teamdata) +
+  geom_histogram(aes(x=Fetilityrate, fill=dia),binwidth=0.1) +
+  facet_wrap(~dia,nc=1)
+```
+```{r}
+ggplot(teamdata) +
+  geom_histogram(aes(x=Populationbelowpovertyline, fill=dia),binwidth=1)+
+facet_wrap(~dia,nc=1)
+```
+```{r}
+aggregate(data=teamdata, Fetilityrate~dia, mean)
+```
+```{r}
+aggregate(data=teamdata, Populationbelowpovertyline~dia, mean)
+```
+
+
+```{r}
+teamdata
+```
+
+```{r}
+summary(teamdata)
+```
+
+```{r}
+hypo1=formula(Fetilityrate~ Populationbelowpovertyline)
+```
+
+```{r}
+colsNeeded=c('Fetilityrate', 'Populationbelowpovertyline')
+```
+
+```{r}
+colsNeeded
+```
+```{r}
+teamdata[,colsNeeded]
+```
+
+```{r}
+str(teamdata[,colsNeeded])
+```
+
+```{r}
+# Defining data used for regression
+DataRegGauss=teamdata[,colsNeeded]
+row.names(DataRegGauss)=teamdata$Country
+```
+
+```{r}
+#regression
+gauss1=glm(hypo1,data = DataRegGauss,family = 'gaussian')
+```
+
+```{r}
+#results of regression
+summary(gauss1)
+```
+```{r}
+# Search for better model
+anova(gauss1,test="Chisq")
+```
+
+```{r}
+# Rsquare
+library(rsq)
+rsq(gauss1,adj=T)
+```
+
+```{r}
+# plot
+plot(gauss1,1)
+```
+```{r}
+# Normality of residuals / Visual exploration
+plot(gauss1,2)
+```
+
+```{r}
+# Normality of residuals / Mathematical exploration
+shapiro.test(gauss1$residuals)
+```
+
+```{r}
+# Homoskedasticity / Visual exploration
+plot(gauss1, 3)
+```
+
+```{r}
+# Homoskedasticity / Mathematical exploration
+library(lmtest)
+bptest(gauss1)
+```
+
+```{r}
+# Test for colinearity, not applicable, only one independent variable
+
+```
+
+```{r}
+# Analyze for atypical values / Visual exploration
+plot(gauss1,5)
+```
+
+```{r}
+# Analyze for atypical values / Querying
+gaussInf=as.data.frame(influence.measures(gauss1)$is.inf)
+gaussInf[gaussInf$cook.d,]
+
+```
+
+```{r}
+# Summary
+library(sjPlot)
+
+plot_models(gauss1,vline.color = "grey")
+```
+```{r}
+# Predictive Approach
+# Split Dataset
+library(caret)
+
+set.seed(123)
+
+selection = createDataPartition(DataRegGauss$Fetilityrate,
+                                p = 0.75,
+                                list = FALSE)
+#
+trainGauss = DataRegGauss[ selection, ]
+#
+testGauss  = DataRegGauss[-selection, ]
+```
+
+```{r}
+# Regress with Traindata
+ctrl = trainControl(method = 'cv',number = 5)
+
+gauss1CV = train(hypo1,
+                 data = trainGauss, 
+                 method = 'glm',
+                 trControl = ctrl)
+
+summary(gauss1CV)
+```
+
+```{r}
+# Evaluate Performance
+predictedVal<-predict(gauss1CV,testGauss)
+
+postResample(obs = testGauss$Fetilityrate, pred=predictedVal)
+```
+
